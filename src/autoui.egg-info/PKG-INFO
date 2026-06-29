@@ -1,0 +1,101 @@
+Metadata-Version: 2.4
+Name: autoui
+Version: 0.1.0
+Summary: Workflow execution engine for deterministic Windows desktop automation
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pywinauto>=0.6.8
+Requires-Dist: pywin32>=306
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+
+# autoUI
+
+Workflow execution engine для **детерминированной** автоматизации Windows desktop-приложений.
+Проверяемые шаги, политики preconditions, ветвление, сожительство с пользователем.
+
+## Назначение
+
+Не «скрипт кликов», а движок сценариев:
+
+```
+when (preconditions) → action → expect (postconditions) → retry / recovery / goto
+```
+
+Успех шага определяется **postconditions**, не фактом вызова action.
+
+## Три слоя
+
+| Слой | Содержимое |
+|------|------------|
+| **runtime** | AutomationRunner, StepPipeline, политики — без знания ОС |
+| **drivers** | PywinautoDriver — UIA, окна, элементы |
+| **uimap** | Логические имена → ElementRef (локаторы) |
+
+## PreconditionPolicy
+
+Отдельно от retry/recovery для **expect**.
+
+| mode | Поведение при невыполнении `when` |
+|------|-----------------------------------|
+| `required` | StepFailed |
+| `skip` | Шаг SKIPPED, action не выполняется |
+| `wait` | Poll до `wait_timeout`, затем `on_timeout` |
+
+### PreconditionOutcome
+
+| Значение | Действие runner |
+|----------|-----------------|
+| `proceed` | К action (или on_met у ProbeStep) |
+| `skip` | SKIPPED |
+| `fail` | StepFailed → ERROR |
+| `goto` | Переход на `goto_step` |
+| `retry_wait` | Ещё один цикл poll (только WAIT) |
+
+`on_timeout` — константа или callback `(ctx, driver, step) -> PreconditionOutcome`.
+
+## PostconditionRecovery
+
+Только для **expect** после исчерпания RetryPolicy. Не путать с `on_timeout`.
+
+Задаётся в `ActionStep.postcondition_recovery`: action (напр. закрыть диалог) + `then`: retry_step | skip | goto | fail.
+
+## IStep
+
+- **ActionStep** — when → action → expect
+- **ProbeStep** — без action, `on_met` после when
+- **BranchStep** — when → then_steps или `else_goto`
+
+Сценарий: `dict[str, IStep]` + `entry`.
+
+## IDriver
+
+- `connect_running_app(selector)` → AppHandle
+- `attach_window(app, title=...)` → WindowHandle
+- `set_primary(app, window)` — кеш для режима одного приложения
+- `resolve(ElementRef)` → **UIElement** (интерактивный объект)
+- `click("uimap_key")` — resolve + click в primary window
+
+## UIMap / ElementRef
+
+**ElementRef** — только локатор (immutable). **UIElement** — click, get_text.
+При смене UI правится UIMap, не сценарий.
+
+## CoexistenceGuard
+
+Mouse hook: пауза при активности пользователя, auto-resume после 30 с idle.
+`ctx.automation_active` — фильтр «своих» кликов агента.
+
+## CLI
+
+```bash
+python -m autoui run examples.double_commander_demo:demo_scenario
+python -m autoui resume --snapshot .autoui/runs/<run_id>.json
+python -m autoui dry-run examples.double_commander_demo:demo_scenario
+```
+
+## Roadmap
+
+- PySide6 GUI
+- YAML loader
+- Другие драйверы (Playwright, vision)
