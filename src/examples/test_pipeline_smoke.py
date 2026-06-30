@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from autoui.abstractions.step import StepResult
 from autoui.conditions.builtin import WindowExists
 from autoui.core.context import ExecutionContext
 from autoui.core.enums import StepResultKind
