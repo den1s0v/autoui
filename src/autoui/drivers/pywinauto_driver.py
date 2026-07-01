@@ -263,10 +263,7 @@ class PywinautoDriver:
     def window_exists(self, title_substring: str, app: PywinautoApp | None = None) -> bool:
         try:
             desktop = self._get_desktop()
-            for w in desktop.windows():
-                if title_substring in (w.window_text() or ""):
-                    return True
-            return False
+            return any(title_substring in (w.window_text() or "") for w in desktop.windows())
         except Exception:
             return False
 
