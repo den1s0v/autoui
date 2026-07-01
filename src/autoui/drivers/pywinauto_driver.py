@@ -2,16 +2,23 @@
 PywinautoDriver — реализация IDriver через UIA backend.
 
 Обёртки PywinautoApp/Window/Element реализуют AppHandle, WindowHandle, UIElement.
+Resolve через LocatorExecutor; not-found → None / False.
 """
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 from autoui.core.exceptions import DriverError
-from autoui.uimap.element_ref import ElementRef
+from autoui.drivers.pywinauto_tree import PywinautoElementTree
+from autoui.locators import Locator, LocatorExecutor, LocatorNotFoundError
+from autoui.locators.trace import LocatorTrace
 from autoui.uimap.map import UIMap
+
+logger = logging.getLogger("autoui.locator")
 
 
 @dataclass
@@ -60,13 +67,23 @@ class PywinautoDriver:
     UIA-драйвер. Требует pywinauto и pywin32.
 
     uimap передаётся при создании или берётся из ctx в actions.
-    """
+  """
 
-    def __init__(self, uimap: UIMap | None = None) -> None:
+    def __init__(
+        self,
+        uimap: UIMap | None = None,
+        *,
+        locator_trace_hook: Callable[[LocatorTrace], None] | None = None,
+        verbose_locators: bool = False,
+    ) -> None:
         self._uimap = uimap
         self._primary_app: PywinautoApp | None = None
         self._primary_window: PywinautoWindow | None = None
         self._desktop: Any = None
+        self._locator_trace_hook = locator_trace_hook
+        self._verbose_locators = verbose_locators
+        self._executor = LocatorExecutor()
+        self._tree = PywinautoElementTree()
 
     def _get_desktop(self) -> Any:
         if self._desktop is None:
@@ -75,10 +92,12 @@ class PywinautoDriver:
             self._desktop = Desktop(backend="uia")
         return self._desktop
 
-    def _resolve_target(self, target: str | ElementRef | PywinautoElement) -> ElementRef | PywinautoElement:
+    def _resolve_target(
+        self, target: str | Locator | PywinautoElement
+    ) -> Locator | PywinautoElement:
         if isinstance(target, PywinautoElement):
             return target
-        if isinstance(target, ElementRef):
+        if isinstance(target, Locator):
             return target
         if self._uimap is None:
             raise DriverError("UIMap required to resolve string target")
@@ -89,6 +108,40 @@ class PywinautoDriver:
         if win is None:
             raise DriverError("No window: call set_primary or pass window=")
         return win.window
+
+    def _emit_trace(self, trace: LocatorTrace) -> None:
+        if self._locator_trace_hook is not None:
+            self._locator_trace_hook(trace)
+        elif self._verbose_locators:
+            logger.debug(trace.format_diagnostic())
+
+    def _execute_locator(
+        self,
+        locator: Locator,
+        window: PywinautoWindow | None,
+    ) -> PywinautoElement | None:
+        root = self._window_spec(window)
+        try:
+            result = self._executor.execute(self._tree, root, locator)
+            if self._verbose_locators:
+                self._emit_trace(result.trace)
+            return PywinautoElement(control=result.node)
+        except LocatorNotFoundError as exc:
+            self._emit_trace(exc.trace)
+            return None
+
+    def _require_element(
+        self,
+        target: str | Locator | PywinautoElement,
+        window: PywinautoWindow | None,
+    ) -> PywinautoElement:
+        resolved = self._resolve_target(target)
+        if isinstance(resolved, PywinautoElement):
+            return resolved
+        element = self._execute_locator(resolved, window)
+        if element is None:
+            raise DriverError(f"Element not found: {target!r}")
+        return element
 
     def connect_running_app(self, selector: str | int) -> PywinautoApp:
         from pywinauto.application import Application
@@ -144,68 +197,50 @@ class PywinautoDriver:
 
     def resolve(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         window: PywinautoWindow | None = None,
-    ) -> PywinautoElement:
-        ref = self._resolve_target(target)
-        if isinstance(ref, PywinautoElement):
-            return ref
-        spec = self._window_spec(window)
-        kwargs: dict[str, Any] = {}
-        if ref.automation_id:
-            kwargs["auto_id"] = ref.automation_id
-        if ref.title:
-            kwargs["title"] = ref.title
-        if ref.class_name:
-            kwargs["class_name"] = ref.class_name
-        if ref.control_type:
-            kwargs["control_type"] = ref.control_type
-        if ref.best_match:
-            kwargs["best_match"] = ref.best_match
-        try:
-            ctrl = spec.child_window(**kwargs)
-            ctrl.wait("exists", timeout=2)
-            return PywinautoElement(control=ctrl)
-        except Exception as exc:
-            raise DriverError(f"resolve failed: {exc}") from exc
+    ) -> PywinautoElement | None:
+        resolved = self._resolve_target(target)
+        if isinstance(resolved, PywinautoElement):
+            return resolved
+        return self._execute_locator(resolved, window)
 
     def click(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         window: PywinautoWindow | None = None,
     ) -> None:
-        self.resolve(target, window).click()
+        self._require_element(target, window).click()
 
     def set_text(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         text: str,
         window: PywinautoWindow | None = None,
     ) -> None:
-        self.resolve(target, window).set_text(text)
+        self._require_element(target, window).set_text(text)
 
     def get_text(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         window: PywinautoWindow | None = None,
     ) -> str:
-        return self.resolve(target, window).get_text()
+        return self._require_element(target, window).get_text()
 
     def get_value(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         window: PywinautoWindow | None = None,
     ) -> str:
-        return self.resolve(target, window).get_value()
+        return self._require_element(target, window).get_value()
 
     def check_checkbox(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         checked: bool,
         window: PywinautoWindow | None = None,
     ) -> None:
-        el = self.resolve(target, window)
-        # UIA toggle pattern simplified
+        el = self._require_element(target, window)
         current = el.get_value()
         is_on = current in ("1", "True", "true", "Checked")
         if is_on != checked:
@@ -213,38 +248,26 @@ class PywinautoDriver:
 
     def exists(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         window: PywinautoWindow | None = None,
     ) -> bool:
         try:
-            ref = self._resolve_target(target)
-            if isinstance(ref, PywinautoElement):
-                return ref.control.exists()
-            spec = self._window_spec(window)
-            kwargs: dict[str, Any] = {}
-            if ref.automation_id:
-                kwargs["auto_id"] = ref.automation_id
-            if ref.title:
-                kwargs["title"] = ref.title
-            if ref.class_name:
-                kwargs["class_name"] = ref.class_name
-            if ref.control_type:
-                kwargs["control_type"] = ref.control_type
-            if ref.best_match:
-                kwargs["best_match"] = ref.best_match
-            return spec.child_window(**kwargs).exists(timeout=0)
-        except Exception:
+            resolved = self._resolve_target(target)
+            if isinstance(resolved, PywinautoElement):
+                return resolved.control.exists()
+            return self._execute_locator(resolved, window) is not None
+        except DriverError:
             return False
 
     def is_enabled(
         self,
-        target: str | ElementRef | PywinautoElement,
+        target: str | Locator | PywinautoElement,
         window: PywinautoWindow | None = None,
     ) -> bool:
-        try:
-            return self.resolve(target, window).is_enabled()
-        except Exception:
+        element = self.resolve(target, window)
+        if element is None:
             return False
+        return element.is_enabled()
 
     def activate_window(self, window: PywinautoWindow | None = None) -> None:
         self._window_spec(window).set_focus()
@@ -284,8 +307,8 @@ class PywinautoDriver:
 
     def set_foreground(self, window: PywinautoWindow) -> None:
         try:
-            import win32gui
             import win32con
+            import win32gui
 
             hwnd = window.native_handle
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)

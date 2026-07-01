@@ -12,7 +12,7 @@ from autoui.core.context import ExecutionContext
 
 @dataclass
 class ClickAction:
-    """Клик по ключу UIMap или ElementRef."""
+    """Клик по ключу UIMap или Locator."""
 
     target: str
     window: WindowHandle | None = None

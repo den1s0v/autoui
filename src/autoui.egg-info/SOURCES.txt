@@ -13,6 +13,7 @@ src/autoui/abstractions/__init__.py
 src/autoui/abstractions/action.py
 src/autoui/abstractions/condition.py
 src/autoui/abstractions/driver.py
+src/autoui/abstractions/element_tree.py
 src/autoui/abstractions/step.py
 src/autoui/actions/__init__.py
 src/autoui/actions/builtin.py
@@ -25,6 +26,7 @@ src/autoui/core/events.py
 src/autoui/core/exceptions.py
 src/autoui/drivers/__init__.py
 src/autoui/drivers/pywinauto_driver.py
+src/autoui/drivers/pywinauto_tree.py
 src/autoui/dsl/__init__.py
 src/autoui/dsl/builder.py
 src/autoui/dsl/precondition.py
@@ -32,6 +34,14 @@ src/autoui/guards/__init__.py
 src/autoui/guards/coexistence.py
 src/autoui/guards/focus.py
 src/autoui/guards/mouse_hook.py
+src/autoui/locators/__init__.py
+src/autoui/locators/element_set.py
+src/autoui/locators/errors.py
+src/autoui/locators/executor.py
+src/autoui/locators/locator.py
+src/autoui/locators/ops.py
+src/autoui/locators/serde.py
+src/autoui/locators/trace.py
 src/autoui/logging/__init__.py
 src/autoui/logging/journal.py
 src/autoui/runtime/__init__.py
@@ -44,7 +54,6 @@ src/autoui/runtime/scenario.py
 src/autoui/runtime/snapshot.py
 src/autoui/runtime/step.py
 src/autoui/uimap/__init__.py
-src/autoui/uimap/element_ref.py
 src/autoui/uimap/map.py
 src/autoui/watchers/__init__.py
 src/autoui/watchers/builtin.py
@@ -52,3 +61,4 @@ src/autoui/watchers/manager.py
 src/examples/__init__.py
 src/examples/double_commander_demo.py
 src/examples/optional_dialog_demo.py
+src/examples/test_pipeline_smoke.py

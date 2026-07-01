@@ -1,6 +1,6 @@
-"""UIMap и ElementRef."""
+"""UIMap и Locator."""
 
-from autoui.uimap.element_ref import ElementRef
+from autoui.locators.locator import Locator
 from autoui.uimap.map import UIMap
 
-__all__ = ["ElementRef", "UIMap"]
+__all__ = ["Locator", "UIMap"]

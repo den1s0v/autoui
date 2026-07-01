@@ -10,13 +10,13 @@ from autoui.actions.builtin import ClickAction, ReadTextAction, SequenceAction
 from autoui.dsl.builder import branch, probe, scenario, step, uimap, window_exists
 from autoui.dsl.precondition import skip_if_not_met, wait_until
 from autoui.runtime.recovery import PostconditionRecovery
-from autoui.uimap.element_ref import ElementRef
+from autoui.locators import Locator
 
 _map = uimap(
     {
-        "export_btn": ElementRef(title="Экспорт"),
-        "error_ok": ElementRef(title="OK"),
-        "error_body": ElementRef(control_type="Text"),
+        "export_btn": Locator.find(name="Экспорт"),
+        "error_ok": Locator.find(name="OK"),
+        "error_body": Locator.find(control_type="Text"),
     }
 )
 

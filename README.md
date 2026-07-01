@@ -19,7 +19,8 @@ when (preconditions) → action → expect (postconditions) → retry / recovery
 |------|------------|
 | **runtime** | AutomationRunner, StepPipeline, политики — без знания ОС |
 | **drivers** | PywinautoDriver — UIA, окна, элементы |
-| **uimap** | Логические имена → ElementRef (локаторы) |
+| **uimap** | Логические имена → Locator (pipeline локаторов) |
+| **locators** | LocatorExecutor, ops — без знания ОС |
 
 ## PreconditionPolicy
 
@@ -62,13 +63,48 @@ when (preconditions) → action → expect (postconditions) → retry / recovery
 - `connect_running_app(selector)` → AppHandle
 - `attach_window(app, title=...)` → WindowHandle
 - `set_primary(app, window)` — кеш для режима одного приложения
-- `resolve(ElementRef)` → **UIElement** (интерактивный объект)
-- `click("uimap_key")` — resolve + click в primary window
+- `resolve(Locator)` → **UIElement | None** (not-found → `None`)
+- `exists(...)` → **bool** (not-found → `False`)
+- `click("uimap_key")` — resolve + click; при not-found → `DriverError`
 
-## UIMap / ElementRef
+## UIMap / Locator
 
-**ElementRef** — только локатор (immutable). **UIElement** — click, get_text.
+**Locator** — immutable pipeline операций поиска (не строка). **UIElement** — click, get_text.
 При смене UI правится UIMap, не сценарий.
+
+### Pipeline
+
+Локатор — последовательность ops над `IElementTree` (драйвер предоставляет примитивы):
+
+| op | Назначение |
+|----|------------|
+| `child` | N-й прямой потомок |
+| `find_descendants` | обход потомков + фильтр `where` |
+| `filter` | фильтр текущего множества |
+| `take` | выбор N-го из множества |
+
+Shorthand: `Locator.find(name="OK")` → `find_descendants` + `take(0)`.
+
+### JSON
+
+```json
+{
+  "ops": [
+    {"op": "child", "index": 1},
+    {"op": "find_descendants", "where": {"control_type": "Button", "name": "Экспорт"}},
+    {"op": "take", "index": 0}
+  ]
+}
+```
+
+Компактная форма: `{"find": {"name": "OK"}}`.
+
+### Not-found
+
+- **LocatorExecutor** бросает `LocatorNotFoundError` с `LocatorTrace` (in/out counts на каждом шаге).
+- **resolve** ловит → `None`; **exists** → `False`.
+- **click** / **set_text** при not-found → `DriverError`.
+- Подробная диагностика: `trace.format_diagnostic()` или `verbose_locators` / `locator_trace_hook` в драйвере.
 
 ## CoexistenceGuard
 

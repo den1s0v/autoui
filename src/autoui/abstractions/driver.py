@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from autoui.uimap.element_ref import ElementRef
+    from autoui.locators.locator import Locator
 
 
 @runtime_checkable
@@ -45,7 +45,8 @@ class IDriver(Protocol):
     Контракт драйвера UI.
 
     window=None во всех методах — primary window из set_primary.
-    target может быть str (ключ UIMap), ElementRef или UIElement.
+    target может быть str (ключ UIMap), Locator или UIElement.
+    resolve при not-found возвращает None; exists — False.
     """
 
     def connect_running_app(self, selector: str | int) -> AppHandle: ...
@@ -66,51 +67,51 @@ class IDriver(Protocol):
 
     def resolve(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         window: WindowHandle | None = None,
-    ) -> UIElement: ...
+    ) -> UIElement | None: ...
 
     def click(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         window: WindowHandle | None = None,
     ) -> None: ...
 
     def set_text(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         text: str,
         window: WindowHandle | None = None,
     ) -> None: ...
 
     def get_text(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         window: WindowHandle | None = None,
     ) -> str: ...
 
     def get_value(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         window: WindowHandle | None = None,
     ) -> str: ...
 
     def check_checkbox(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         checked: bool,
         window: WindowHandle | None = None,
     ) -> None: ...
 
     def exists(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         window: WindowHandle | None = None,
     ) -> bool: ...
 
     def is_enabled(
         self,
-        target: str | ElementRef | UIElement,
+        target: str | Locator | UIElement,
         window: WindowHandle | None = None,
     ) -> bool: ...
 

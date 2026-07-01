@@ -15,12 +15,12 @@ from autoui.dsl.builder import (
     window_exists,
 )
 from autoui.dsl.precondition import skip_if_not_met
-from autoui.uimap.element_ref import ElementRef
+from autoui.locators import Locator
 
 # Карта элементов — при смене UI правится только этот блок.
 _map = uimap(
     {
-        "toolbar": ElementRef(class_name="ToolbarWindow32"),
+        "toolbar": Locator.find(class_name="ToolbarWindow32"),
     }
 )
 
