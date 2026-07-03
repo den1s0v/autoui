@@ -58,7 +58,7 @@ def path_from_root(element: Any) -> str:
             cur = cur.parent()
         except Exception:
             break
-    return " -> ".join(reversed(path))
+    return "\n".join(reversed(path))
 
 
 def list_menu_items(menu_item: Any, indent: str = "") -> None:

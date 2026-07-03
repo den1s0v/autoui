@@ -124,7 +124,7 @@ python -m autoui dry-run examples.double_commander_demo:demo_scenario
 Интерактивный подбор локаторов: [`src/examples/exploring.ipynb`](src/examples/exploring.ipynb).
 
 ```python
-from autoui.explore import ExplorerSession, find_desktop_window
+from autoui.explore import ExplorerSession, find_desktop_windows
 
 session = ExplorerSession("Notepad++")
 session.connect()
