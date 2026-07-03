@@ -111,9 +111,11 @@ class LocatorExecutor:
     ) -> tuple[ElementSet[TreeNode], TraceStatus]:
         out: list[TreeNode] = []
         for node in current.nodes:
-            for desc in tree.descendants(node):
-                if _matches_where(tree.properties(desc), where):
-                    out.append(desc)
+            if where:
+                descs = tree.descendants(node, where=where)
+            else:
+                descs = tree.descendants(node)
+            out.extend(descs)
         if not out:
             return ElementSet.empty(), "empty"
         return ElementSet.from_list(out), "ok"

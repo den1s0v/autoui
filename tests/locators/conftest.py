@@ -61,7 +61,7 @@ class MockElementTree(IElementTree):
     def children(self, node: MockNode) -> list[MockNode]:
         return list(node.children)
 
-    def descendants(self, node: MockNode) -> list[MockNode]:
+    def descendants(self, node: MockNode, *, where: dict | None = None) -> list[MockNode]:
         out: list[MockNode] = []
 
         def walk(n: MockNode) -> None:
@@ -70,7 +70,16 @@ class MockElementTree(IElementTree):
                 walk(child)
 
         walk(node)
-        return out
+        if not where:
+            return out
+        return [n for n in out if _mock_matches(n.props, where)]
 
     def properties(self, node: MockNode) -> ElementProperties:
         return node.props
+
+
+def _mock_matches(props: ElementProperties, where: dict) -> bool:
+    for key, expected in where.items():
+        if getattr(props, key, None) != expected:
+            return False
+    return True

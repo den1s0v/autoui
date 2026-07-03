@@ -8,7 +8,7 @@ IElementTree — примитивы обхода UI-дерева для LocatorE
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Mapping, Protocol, runtime_checkable
 
 TreeNode = Any
 
@@ -33,6 +33,11 @@ class IElementTree(Protocol):
 
     def children(self, node: TreeNode) -> list[TreeNode]: ...
 
-    def descendants(self, node: TreeNode) -> list[TreeNode]: ...
+    def descendants(
+        self,
+        node: TreeNode,
+        *,
+        where: Mapping[str, Any] | None = None,
+    ) -> list[TreeNode]: ...
 
     def properties(self, node: TreeNode) -> ElementProperties: ...

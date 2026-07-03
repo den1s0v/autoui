@@ -1,7 +1,8 @@
 """
 PywinautoElementTree — IElementTree над pywinauto control.
 
-Только в drivers/; ядро не импортирует pywinauto.
+Возвращает UIAWrapper (как node.children() в pywinauto), не сырой ElementInfo.
+FindDescendants делегирует фильтры в control.descendants(**kwargs) где возможно.
 """
 
 from __future__ import annotations
@@ -9,29 +10,35 @@ from __future__ import annotations
 from typing import Any
 
 from autoui.abstractions.element_tree import ElementProperties, IElementTree
+from autoui.locators.ops import FILTER_KEYS, FilterWhere
+
+_NATIVE_WHERE_KEYS = frozenset({"class_name", "control_type", "name", "title"})
 
 
 class PywinautoElementTree(IElementTree):
     def children(self, node: Any) -> list[Any]:
         try:
-            info = node.element_info
-            return list(info.children())
+            raw = list(node.children())
         except Exception:
-            return list(node.children())
+            return self._children_fallback(node)
+        return _wrap_children(node, raw)
 
-    def descendants(self, node: Any) -> list[Any]:
+    def descendants(self, node: Any, *, where: FilterWhere | None = None) -> list[Any]:
+        native, post = _split_where(where)
         try:
-            return list(node.descendants())
+            raw = list(node.descendants(**native))
         except Exception:
-            out: list[Any] = []
-
-            def walk(ctrl: Any) -> None:
-                for child in self.children(ctrl):
-                    out.append(child)
-                    walk(child)
-
-            walk(node)
-            return out
+            raw = self._descendants_fallback(node)
+            if native:
+                raw = [
+                    item
+                    for item in raw
+                    if _matches_native_props(self.properties(item), native)
+                ]
+        wrapped = _wrap_children(node, raw)
+        if post:
+            wrapped = [item for item in wrapped if _matches_post(self.properties(item), post)]
+        return wrapped
 
     def properties(self, node: Any) -> ElementProperties:
         try:
@@ -57,6 +64,70 @@ class PywinautoElementTree(IElementTree):
             enabled=enabled,
             visible=visible,
         )
+
+    def _children_fallback(self, node: Any) -> list[Any]:
+        try:
+            info = node.element_info
+            raw = list(info.children())
+            return _wrap_children(node, raw)
+        except Exception:
+            return []
+
+    def _descendants_fallback(self, node: Any) -> list[Any]:
+        out: list[Any] = []
+
+        def walk(ctrl: Any) -> None:
+            for child in self.children(ctrl):
+                out.append(child)
+                walk(child)
+
+        walk(node)
+        return out
+
+
+def _split_where(where: FilterWhere | None) -> tuple[dict[str, Any], FilterWhere]:
+    if not where:
+        return {}, {}
+    native: dict[str, Any] = {}
+    post: FilterWhere = {}
+    for key, value in where.items():
+        if key in _NATIVE_WHERE_KEYS:
+            native[_to_pywinauto_key(key)] = value
+        elif key in FILTER_KEYS:
+            post[key] = value
+    return native, post
+
+
+def _to_pywinauto_key(key: str) -> str:
+    if key == "name":
+        return "title"
+    return key
+
+
+def _wrap_children(parent: Any, items: list[Any]) -> list[Any]:
+    if not items:
+        return items
+    if hasattr(items[0], "draw_outline"):
+        return items
+    backend = getattr(parent, "backend", None)
+    if backend is None:
+        return items
+    return [backend.generic_wrapper_class(item) for item in items]
+
+
+def _matches_native_props(props: ElementProperties, native: dict[str, Any]) -> bool:
+    for key, expected in native.items():
+        attr = "name" if key == "title" else key
+        if getattr(props, attr, None) != expected:
+            return False
+    return True
+
+
+def _matches_post(props: ElementProperties, post: FilterWhere) -> bool:
+    for key, expected in post.items():
+        if getattr(props, key, None) != expected:
+            return False
+    return True
 
 
 def _control_type_name(info: Any) -> str | None:
