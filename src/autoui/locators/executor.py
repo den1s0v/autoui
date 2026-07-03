@@ -22,7 +22,7 @@ from autoui.locators.ops import (
     LocatorOp,
     TakeOp,
 )
-from autoui.locators.trace import LocatorTrace, TraceStep, TraceStatus
+from autoui.locators.trace import LocatorTrace, TraceStatus, TraceStep
 
 TreeNode = Any
 
