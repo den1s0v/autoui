@@ -119,6 +119,18 @@ python -m autoui resume --snapshot .autoui/runs/<run_id>.json
 python -m autoui dry-run examples.double_commander_demo:demo_scenario
 ```
 
+## Explore playground (Jupyter)
+
+Интерактивный подбор локаторов: [`src/examples/exploring.ipynb`](src/examples/exploring.ipynb).
+
+```python
+from autoui.explore import ExplorerSession, find_desktop_window
+
+session = ExplorerSession("Notepad++")
+session.connect()
+session.try_locator(locator)  # resolve + подсветка + trace
+```
+
 ## Roadmap
 
 - PySide6 GUI
