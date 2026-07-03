@@ -43,8 +43,17 @@ class PywinautoElement:
 
     control: Any
 
-    def click(self) -> None:
-        self.control.click_input()
+    def click(self, internally: bool = True) -> None:
+        """Click on the element.
+
+        Args:
+            internally: If True, simulate click internally without moving the mouse (click).
+            If False, click on the element using the mouse (click_input).
+        """
+        if internally:
+            self.control.click()
+        else:
+            self.control.click_input()
 
     def set_text(self, text: str) -> None:
         self.control.set_edit_text(text)
