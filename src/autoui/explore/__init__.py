@@ -7,6 +7,9 @@ autoui.explore — playground для подбора локаторов (Jupyter 
 from autoui.explore.highlight import HighlightManager
 from autoui.explore.playground import ExplorerSession
 from autoui.explore.pywinauto_helpers import (
+    filter_children,
+    filter_controls,
+    filter_descendants,
     filter_windows_by_title,
     find_desktop_windows,
     list_menu_items,
@@ -16,6 +19,9 @@ from autoui.explore.pywinauto_helpers import (
 __all__ = [
     "ExplorerSession",
     "HighlightManager",
+    "filter_children",
+    "filter_controls",
+    "filter_descendants",
     "filter_windows_by_title",
     "find_desktop_windows",
     "list_menu_items",
