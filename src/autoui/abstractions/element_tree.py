@@ -38,6 +38,7 @@ class IElementTree(Protocol):
         node: TreeNode,
         *,
         where: Mapping[str, Any] | None = None,
+        depth: int | None = None,
     ) -> list[TreeNode]: ...
 
     def properties(self, node: TreeNode) -> ElementProperties: ...

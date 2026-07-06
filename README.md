@@ -79,7 +79,7 @@ when (preconditions) → action → expect (postconditions) → retry / recovery
 | op | Назначение |
 |----|------------|
 | `child` | N-й прямой потомок |
-| `find_descendants` | обход потомков + фильтр `where`; опционально `depth` (max-глубина, 1=children) и `limit` (останов после N совпадений) |
+| `find_descendants` | обход потомков + фильтр `where`; опционально `depth` (max-глубина, 1=children; в pywinauto — нативно) и `limit` (ранняя остановка после N совпадений, BFS в executor) |
 | `filter` | фильтр текущего множества |
 | `take` | выбор N-го из множества |
 

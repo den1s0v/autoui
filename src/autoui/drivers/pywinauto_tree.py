@@ -2,7 +2,7 @@
 PywinautoElementTree — IElementTree над pywinauto control.
 
 Возвращает UIAWrapper (как node.children() в pywinauto), не сырой ElementInfo.
-FindDescendants делегирует фильтры в control.descendants(**kwargs) где возможно.
+FindDescendants делегирует фильтры и depth в control.descendants(**kwargs) где возможно.
 """
 
 from __future__ import annotations
@@ -23,12 +23,21 @@ class PywinautoElementTree(IElementTree):
             return self._children_fallback(node)
         return _wrap_children(node, raw)
 
-    def descendants(self, node: Any, *, where: FilterWhere | None = None) -> list[Any]:
+    def descendants(
+        self,
+        node: Any,
+        *,
+        where: FilterWhere | None = None,
+        depth: int | None = None,
+    ) -> list[Any]:
         native, post = _split_where(where)
         try:
-            raw = list(node.descendants(**native))
+            kwargs = dict(native)
+            if depth is not None:
+                kwargs["depth"] = depth
+            raw = list(node.descendants(**kwargs))
         except Exception:
-            raw = self._descendants_fallback(node)
+            raw = self._descendants_fallback(node, depth=depth)
             if native:
                 raw = [
                     item
@@ -73,15 +82,17 @@ class PywinautoElementTree(IElementTree):
         except Exception:
             return []
 
-    def _descendants_fallback(self, node: Any) -> list[Any]:
+    def _descendants_fallback(self, node: Any, *, depth: int | None = None) -> list[Any]:
         out: list[Any] = []
 
-        def walk(ctrl: Any) -> None:
+        def walk(ctrl: Any, remaining: int | None) -> None:
             for child in self.children(ctrl):
                 out.append(child)
-                walk(child)
+                if remaining is None or remaining > 1:
+                    next_depth = None if remaining is None else remaining - 1
+                    walk(child, next_depth)
 
-        walk(node)
+        walk(node, depth)
         return out
 
 

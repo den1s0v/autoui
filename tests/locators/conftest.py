@@ -61,15 +61,25 @@ class MockElementTree(IElementTree):
     def children(self, node: MockNode) -> list[MockNode]:
         return list(node.children)
 
-    def descendants(self, node: MockNode, *, where: dict | None = None) -> list[MockNode]:
+    def descendants(
+        self,
+        node: MockNode,
+        *,
+        where: dict | None = None,
+        depth: int | None = None,
+    ) -> list[MockNode]:
         out: list[MockNode] = []
-
-        def walk(n: MockNode) -> None:
-            for child in n.children:
+        frontier: list[MockNode] = list(node.children)
+        level = 1
+        while frontier:
+            if depth is not None and level > depth:
+                break
+            next_frontier: list[MockNode] = []
+            for child in frontier:
                 out.append(child)
-                walk(child)
-
-        walk(node)
+                next_frontier.extend(child.children)
+            frontier = next_frontier
+            level += 1
         if not where:
             return out
         return [n for n in out if _mock_matches(n.props, where)]

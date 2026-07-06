@@ -111,16 +111,12 @@ class LocatorExecutor:
     ) -> tuple[ElementSet[TreeNode], TraceStatus]:
         out: list[TreeNode] = []
         for node in current.nodes:
-            if op.depth is None and op.limit is None:
-                if op.where:
-                    out.extend(tree.descendants(node, where=op.where))
-                else:
-                    out.extend(tree.descendants(node))
+            if op.limit is None:
+                out.extend(tree.descendants(node, where=op.where, depth=op.depth))
             else:
-                collected = self._walk_descendants(
-                    tree, node, op.where, op.depth, op.limit
+                out.extend(
+                    self._walk_descendants(tree, node, op.where, op.depth, op.limit)
                 )
-                out.extend(collected)
             if op.limit is not None and len(out) >= op.limit:
                 out = out[: op.limit]
                 break
