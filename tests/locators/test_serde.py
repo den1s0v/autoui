@@ -54,3 +54,36 @@ def test_unknown_op_raises() -> None:
 def test_unknown_filter_key_raises() -> None:
     with pytest.raises(LocatorError, match="Unknown filter"):
         locator_from_dict({"ops": [{"op": "filter", "where": {"bad_key": 1}}]})
+
+
+def test_find_descendants_depth_limit_round_trip() -> None:
+    original = Locator(
+        [
+            FindDescendantsOp(
+                where={"control_type": "Button"},
+                depth=2,
+                limit=5,
+            ),
+            TakeOp(0),
+        ]
+    )
+    restored = locator_from_dict(locator_to_dict(original))
+    op = restored.ops[0]
+    assert isinstance(op, FindDescendantsOp)
+    assert op.depth == 2
+    assert op.limit == 5
+
+
+def test_find_descendants_depth_zero_in_json_raises() -> None:
+    with pytest.raises(LocatorError, match="depth"):
+        locator_from_dict(
+            {
+                "ops": [
+                    {
+                        "op": "find_descendants",
+                        "where": {"control_type": "Button"},
+                        "depth": 0,
+                    }
+                ]
+            }
+        )

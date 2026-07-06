@@ -97,3 +97,50 @@ def test_format_diagnostic_success(tree: MockElementTree, root) -> None:
     diag = result.trace.format_diagnostic()
     assert "success" in diag
     assert "find_descendants" in diag
+
+
+def test_find_descendants_depth_one_panes(tree: MockElementTree, root) -> None:
+    locator = Locator(
+        [
+            FindDescendantsOp(where={"control_type": "Pane"}, depth=1),
+            TakeOp(0),
+        ]
+    )
+    result = LocatorExecutor().execute(tree, root, locator)
+    assert tree.properties(result.node).control_type == "Pane"
+
+
+def test_find_descendants_depth_one_buttons_empty(tree: MockElementTree, root) -> None:
+    locator = Locator(
+        [
+            FindDescendantsOp(where={"control_type": "Button"}, depth=1),
+            TakeOp(0),
+        ]
+    )
+    with pytest.raises(LocatorNotFoundError):
+        LocatorExecutor().execute(tree, root, locator)
+
+
+def test_find_descendants_limit_one(tree: MockElementTree, root) -> None:
+    locator = Locator(
+        [
+            FindDescendantsOp(
+                where={"control_type": "Button"},
+                depth=3,
+                limit=1,
+            ),
+            TakeOp(0),
+        ]
+    )
+    result = LocatorExecutor().execute(tree, root, locator)
+    assert tree.properties(result.node).name == "Экспорт"
+
+
+def test_find_descendants_depth_zero_invalid() -> None:
+    with pytest.raises(ValueError, match="depth"):
+        FindDescendantsOp(where={"control_type": "Button"}, depth=0)
+
+
+def test_find_descendants_limit_zero_invalid() -> None:
+    with pytest.raises(ValueError, match="limit"):
+        FindDescendantsOp(where={"control_type": "Button"}, limit=0)

@@ -78,7 +78,7 @@ class LocatorExecutor:
         if isinstance(op, ChildOp):
             return self._child(tree, current, op.index)
         if isinstance(op, FindDescendantsOp):
-            return self._find_descendants(tree, current, op.where)
+            return self._find_descendants(tree, current, op)
         if isinstance(op, FilterOp):
             return self._filter(tree, current, op.where)
         if isinstance(op, TakeOp):
@@ -107,18 +107,52 @@ class LocatorExecutor:
         self,
         tree: IElementTree,
         current: ElementSet[TreeNode],
-        where: FilterWhere,
+        op: FindDescendantsOp,
     ) -> tuple[ElementSet[TreeNode], TraceStatus]:
         out: list[TreeNode] = []
         for node in current.nodes:
-            if where:
-                descs = tree.descendants(node, where=where)
+            if op.depth is None and op.limit is None:
+                if op.where:
+                    out.extend(tree.descendants(node, where=op.where))
+                else:
+                    out.extend(tree.descendants(node))
             else:
-                descs = tree.descendants(node)
-            out.extend(descs)
+                collected = self._walk_descendants(
+                    tree, node, op.where, op.depth, op.limit
+                )
+                out.extend(collected)
+            if op.limit is not None and len(out) >= op.limit:
+                out = out[: op.limit]
+                break
         if not out:
             return ElementSet.empty(), "empty"
         return ElementSet.from_list(out), "ok"
+
+    def _walk_descendants(
+        self,
+        tree: IElementTree,
+        root: TreeNode,
+        where: FilterWhere,
+        depth: int | None,
+        limit: int | None,
+    ) -> list[TreeNode]:
+        """BFS: узлы на расстоянии 1..depth от root, фильтр where, ранняя остановка по limit."""
+        out: list[TreeNode] = []
+        frontier: list[TreeNode] = list(tree.children(root))
+        level = 1
+        while frontier:
+            if depth is not None and level > depth:
+                break
+            next_frontier: list[TreeNode] = []
+            for node in frontier:
+                if _matches_where(tree.properties(node), where):
+                    out.append(node)
+                    if limit is not None and len(out) >= limit:
+                        return out
+                next_frontier.extend(tree.children(node))
+            frontier = next_frontier
+            level += 1
+        return out
 
     def _filter(
         self,

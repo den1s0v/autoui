@@ -79,7 +79,7 @@ when (preconditions) → action → expect (postconditions) → retry / recovery
 | op | Назначение |
 |----|------------|
 | `child` | N-й прямой потомок |
-| `find_descendants` | обход потомков + фильтр `where` |
+| `find_descendants` | обход потомков + фильтр `where`; опционально `depth` (max-глубина, 1=children) и `limit` (останов после N совпадений) |
 | `filter` | фильтр текущего множества |
 | `take` | выбор N-го из множества |
 
@@ -91,7 +91,7 @@ Shorthand: `Locator.find(name="OK")` → `find_descendants` + `take(0)`.
 {
   "ops": [
     {"op": "child", "index": 1},
-    {"op": "find_descendants", "where": {"control_type": "Button", "name": "Экспорт"}},
+    {"op": "find_descendants", "where": {"control_type": "Button", "name": "Экспорт"}, "depth": 2, "limit": 5},
     {"op": "take", "index": 0}
   ]
 }

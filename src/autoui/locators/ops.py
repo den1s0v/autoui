@@ -38,9 +38,15 @@ class ChildOp:
 @dataclass(frozen=True)
 class FindDescendantsOp:
     where: FilterWhere
+    depth: int | None = None
+    limit: int | None = None
 
     def __post_init__(self) -> None:
         validate_filter_where(self.where)
+        if self.depth is not None and self.depth < 1:
+            raise ValueError("depth must be >= 1 or None")
+        if self.limit is not None and self.limit < 1:
+            raise ValueError("limit must be >= 1 or None")
 
     @property
     def op(self) -> str:

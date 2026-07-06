@@ -56,7 +56,12 @@ def _format_op(op: LocatorOp) -> str:
     if isinstance(op, ChildOp):
         return f"child(index={op.index})"
     if isinstance(op, FindDescendantsOp):
-        return f"find_descendants({op.where})"
+        parts = [f"where={op.where!r}"]
+        if op.depth is not None:
+            parts.append(f"depth={op.depth}")
+        if op.limit is not None:
+            parts.append(f"limit={op.limit}")
+        return f"find_descendants({', '.join(parts)})"
     if isinstance(op, FilterOp):
         return f"filter({op.where})"
     if isinstance(op, TakeOp):

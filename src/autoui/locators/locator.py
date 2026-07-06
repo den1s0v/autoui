@@ -24,13 +24,25 @@ class Locator:
         object.__setattr__(self, "ops", tuple(ops))
 
     @classmethod
-    def find(cls, **where: object) -> Locator:
+    def find(
+        cls,
+        *,
+        depth: int | None = None,
+        limit: int | None = None,
+        **where: object,
+    ) -> Locator:
         """
         Shorthand: FindDescendants(where) → Take(0).
 
-        Ключи: name, automation_id, class_name, control_type, enabled, visible.
+        Ключи where: name, automation_id, class_name, control_type, enabled, visible.
+        depth — max-глубина (1 = только children); limit — ранняя остановка после N совпадений.
         """
         clean: FilterWhere = {k: v for k, v in where.items() if v is not None}
         if not clean:
             raise ValueError("Locator.find() requires at least one filter field")
-        return cls((FindDescendantsOp(where=clean), TakeOp(index=0)))
+        return cls(
+            (
+                FindDescendantsOp(where=clean, depth=depth, limit=limit),
+                TakeOp(index=0),
+            )
+        )
