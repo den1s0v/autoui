@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from autoui.abstractions.element_tree import ElementProperties
 from autoui.drivers.pywinauto_tree import _split_where, _wrap_children
 
 
@@ -39,8 +38,16 @@ class FakeParent:
 
 def test_split_where_maps_name_to_title() -> None:
     native, post = _split_where({"control_type": "Button", "name": "OK", "automation_id": "x"})
-    assert native == {"control_type": "Button", "title": "OK"}
-    assert post == {"automation_id": "x"}
+    assert native == {"control_type": "Button", "title": "OK", "automation_id": "x"}
+    assert post == {}
+
+
+def test_split_where_operators_go_to_post() -> None:
+    native, post = _split_where(
+        {"class_name": {"$contains": "logo"}, "name": "OK"}
+    )
+    assert native == {"title": "OK"}
+    assert post == {"class_name": {"$contains": "logo"}}
 
 
 def test_wrap_children_wraps_element_info() -> None:

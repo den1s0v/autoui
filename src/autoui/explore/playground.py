@@ -110,9 +110,9 @@ class ExplorerSession:
         """Печать [i] control_type | name | automation_id для подбора индекса."""
         for i, ctrl in enumerate(controls):
             props = self._tree.properties(ctrl)
-            name = props.name or ""
-            auto_id = props.automation_id or ""
-            ct = props.control_type or ""
+            name = props.get("name") or props.get("rich_text") or ""
+            auto_id = props.get("automation_id") or ""
+            ct = props.get("control_type") or props.get("friendly_class_name") or ""
             print(f"[{i}] {ct} | {name!r} | auto_id={auto_id!r}")
 
     def describe(self, control: Any) -> None:

@@ -6,11 +6,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
-from autoui.abstractions.element_tree import ElementProperties
 from autoui.drivers.pywinauto_tree import PywinautoElementTree
-from autoui.locators.ops import FILTER_KEYS
+from autoui.locators.matching import match_where, validate_filter_where
 
 _tree = PywinautoElementTree()
 
@@ -37,21 +37,19 @@ def find_desktop_windows(target_window_title: str) -> list[Any]:
 
 def filter_controls(controls: Iterable[Any], /, **where: Any) -> list[Any]:
     """
-    Оставить controls, у которых свойства element_info совпадают с where.
+    Оставить controls, у которых properties совпадают с where.
 
-    Ключи те же, что в Locator.find / FindDescendantsOp: name, automation_id,
-    class_name, control_type, enabled, visible. None-значения в where игнорируются.
+    Любые ключи из properties() драйвера; операторы $eq / $contains / $word.
+    None-значения в where игнорируются.
     """
     clean = {k: v for k, v in where.items() if v is not None}
     if not clean:
         raise ValueError("filter_controls() requires at least one filter field")
-    unknown = set(clean) - FILTER_KEYS
-    if unknown:
-        raise ValueError(f"Unknown filter keys: {sorted(unknown)}")
+    validate_filter_where(clean)
 
     result: list[Any] = []
     for control in controls:
-        if _matches_properties(_tree.properties(control), clean):
+        if match_where(_tree.properties(control), clean):
             result.append(control)
     return result
 
@@ -64,13 +62,6 @@ def filter_children(root: Any, /, **where: Any) -> list[Any]:
 def filter_descendants(root: Any, /, **where: Any) -> list[Any]:
     """filter_controls(root.descendants(), **where)."""
     return filter_controls(root.descendants(), **where)
-
-
-def _matches_properties(props: ElementProperties, where: dict[str, Any]) -> bool:
-    for key, expected in where.items():
-        if getattr(props, key, None) != expected:
-            return False
-    return True
 
 
 def filter_windows_by_title(windows: list[Any], target_window_title: str) -> list[Any]:

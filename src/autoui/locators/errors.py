@@ -18,3 +18,7 @@ class LocatorNotFoundError(LocatorError):
     def __init__(self, message: str, *, trace: LocatorTrace) -> None:
         super().__init__(message)
         self.trace = trace
+
+
+class LocatorFilterError(LocatorError):
+    """Невалидный синтаксис where при создании locator/op."""

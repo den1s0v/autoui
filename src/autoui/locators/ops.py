@@ -5,25 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from autoui.locators.matching import validate_filter_where
+
 FilterWhere = dict[str, Any]
-
-FILTER_KEYS = frozenset(
-    {
-        "name",
-        "automation_id",
-        "class_name",
-        "control_type",
-        "enabled",
-        "visible",
-    }
-)
-
-
-def validate_filter_where(where: FilterWhere) -> FilterWhere:
-    unknown = set(where) - FILTER_KEYS
-    if unknown:
-        raise ValueError(f"Unknown filter keys: {sorted(unknown)}")
-    return where
 
 
 @dataclass(frozen=True)

@@ -34,7 +34,8 @@ class Locator:
         """
         Shorthand: FindDescendants(where) → Take(0).
 
-        Ключи where: name, automation_id, class_name, control_type, enabled, visible.
+        where — любые ключи из properties() драйвера; скаляр = точное равенство,
+        dict с $eq / $contains / $word — операторы сравнения.
         depth — max-глубина (1 = только children); limit — ранняя остановка после N совпадений.
         """
         clean: FilterWhere = {k: v for k, v in where.items() if v is not None}

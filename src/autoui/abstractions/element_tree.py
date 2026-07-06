@@ -7,22 +7,13 @@ IElementTree — примитивы обхода UI-дерева для LocatorE
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Mapping, Protocol, runtime_checkable
+from collections.abc import Mapping
+from typing import Any, Protocol, runtime_checkable
 
 TreeNode = Any
 
-
-@dataclass(frozen=True)
-class ElementProperties:
-    """Свойства узла для фильтрации в pipeline."""
-
-    name: str | None = None
-    automation_id: str | None = None
-    class_name: str | None = None
-    control_type: str | None = None
-    enabled: bool | None = None
-    visible: bool | None = None
+# Свойства узла для фильтрации: открытый словарь (ключи зависят от драйвера).
+ElementProperties = dict[str, Any]
 
 
 @runtime_checkable

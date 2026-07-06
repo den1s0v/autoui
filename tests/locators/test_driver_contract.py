@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from autoui.abstractions.element_tree import ElementProperties, IElementTree
+from autoui.abstractions.element_tree import IElementTree
 from autoui.core.exceptions import DriverError
 from autoui.locators import Locator, LocatorExecutor, LocatorNotFoundError
 from autoui.locators.trace import LocatorTrace

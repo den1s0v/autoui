@@ -11,10 +11,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from autoui.abstractions.element_tree import ElementProperties, IElementTree
+from autoui.abstractions.element_tree import IElementTree
 from autoui.locators.element_set import ElementSet
 from autoui.locators.errors import LocatorNotFoundError
 from autoui.locators.locator import Locator
+from autoui.locators.matching import match_where
 from autoui.locators.ops import (
     ChildOp,
     FilterOp,
@@ -205,7 +206,7 @@ class LocatorExecutor:
                 break
             next_frontier: list[TreeNode] = []
             for node in frontier:
-                if _matches_where(tree.properties(node), where):
+                if match_where(tree.properties(node), where):
                     out.append(node)
                     if limit is not None and len(out) >= limit:
                         return out
@@ -221,7 +222,7 @@ class LocatorExecutor:
         where: FilterWhere,
     ) -> tuple[ElementSet[TreeNode], TraceStatus]:
         filtered = current.filter_nodes(
-            lambda n: _matches_where(tree.properties(n), where)
+            lambda n: match_where(tree.properties(n), where)
         )
         if filtered.is_empty():
             return filtered, "empty"
@@ -235,14 +236,6 @@ class LocatorExecutor:
         if index >= len(current):
             return ElementSet.empty(), "index_out_of_range"
         return ElementSet.single(current.nodes[index]), "ok"
-
-
-def _matches_where(props: ElementProperties, where: FilterWhere) -> bool:
-    for key, expected in where.items():
-        actual = getattr(props, key, None)
-        if actual != expected:
-            return False
-    return True
 
 
 def _failure_reason(status: TraceStatus) -> str:

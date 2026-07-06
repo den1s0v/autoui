@@ -1,8 +1,8 @@
 """
 PywinautoElementTree — IElementTree над pywinauto control.
 
-Возвращает UIAWrapper (как node.children() в pywinauto), не сырой ElementInfo.
-FindDescendants делегирует фильтры и depth в control.descendants(**kwargs) где возможно.
+properties(): сначала element_info, затем get_properties() (setdefault).
+FindDescendants делегирует exact scalar-фильтры в control.descendants(**kwargs) где возможно.
 """
 
 from __future__ import annotations
@@ -10,9 +10,23 @@ from __future__ import annotations
 from typing import Any
 
 from autoui.abstractions.element_tree import ElementProperties, IElementTree
-from autoui.locators.ops import FILTER_KEYS, FilterWhere
+from autoui.locators.matching import is_exact_scalar_condition, match_where
+from autoui.locators.ops import FilterWhere
+import contextlib
 
-_NATIVE_WHERE_KEYS = frozenset({"class_name", "control_type", "name", "title"})
+_NATIVE_WHERE_KEYS = frozenset({"class_name", "control_type", "name", "title", "automation_id"})
+
+_ELEMENT_INFO_ATTRS = (
+    "name",
+    "rich_text",
+    "class_name",
+    "automation_id",
+    "control_type",
+    "control_id",
+    "handle",
+    "process_id",
+    "framework_id",
+)
 
 
 class PywinautoElementTree(IElementTree):
@@ -42,37 +56,35 @@ class PywinautoElementTree(IElementTree):
                 raw = [
                     item
                     for item in raw
-                    if _matches_native_props(self.properties(item), native)
+                    if match_where(self.properties(item), _native_where_as_filter(native))
                 ]
         wrapped = _wrap_children(node, raw)
         if post:
-            wrapped = [item for item in wrapped if _matches_post(self.properties(item), post)]
+            wrapped = [item for item in wrapped if match_where(self.properties(item), post)]
         return wrapped
 
     def properties(self, node: Any) -> ElementProperties:
-        try:
-            info = node.element_info
-            name = info.name or None
-            automation_id = getattr(info, "automation_id", None) or None
-            class_name = info.class_name or None
-            control_type = _control_type_name(info)
+        props: ElementProperties = {}
+        with contextlib.suppress(Exception):
+            props.update(_collect_element_info_props(node.element_info))
+        if "name" not in props:
+            fallback_name = _safe_str(lambda: node.window_text())
+            if fallback_name is not None:
+                props["name"] = fallback_name
+        if "enabled" not in props:
             enabled = _safe_bool(lambda: node.is_enabled())
+            if enabled is not None:
+                props["enabled"] = enabled
+        if "visible" not in props:
             visible = _safe_bool(lambda: node.is_visible())
+            if visible is not None:
+                props["visible"] = visible
+        try:
+            for key, val in node.get_properties().items():
+                props.setdefault(key, val)
         except Exception:
-            name = _safe_str(lambda: node.window_text())
-            automation_id = None
-            class_name = None
-            control_type = None
-            enabled = None
-            visible = None
-        return ElementProperties(
-            name=name,
-            automation_id=automation_id,
-            class_name=class_name,
-            control_type=control_type,
-            enabled=enabled,
-            visible=visible,
-        )
+            pass
+        return props
 
     def _children_fallback(self, node: Any) -> list[Any]:
         try:
@@ -96,15 +108,46 @@ class PywinautoElementTree(IElementTree):
         return out
 
 
+def _collect_element_info_props(ei: Any) -> ElementProperties:
+    props: ElementProperties = {}
+    for attr in _ELEMENT_INFO_ATTRS:
+        if not hasattr(ei, attr):
+            continue
+        try:
+            val = getattr(ei, attr)
+        except Exception:
+            continue
+        props[attr] = _normalize_prop_value(attr, val)
+    return props
+
+
+def _normalize_prop_value(attr: str, val: Any) -> Any:
+    if val is None:
+        return None
+    if attr == "control_type":
+        return str(val)
+    if isinstance(val, str):
+        return val if val else None
+    return val
+
+
+def _native_where_as_filter(native: dict[str, Any]) -> FilterWhere:
+    """Ключи pywinauto descendants → ключи properties для match_where."""
+    out: FilterWhere = {}
+    for key, val in native.items():
+        out["name" if key == "title" else key] = val
+    return out
+
+
 def _split_where(where: FilterWhere | None) -> tuple[dict[str, Any], FilterWhere]:
     if not where:
         return {}, {}
     native: dict[str, Any] = {}
     post: FilterWhere = {}
     for key, value in where.items():
-        if key in _NATIVE_WHERE_KEYS:
+        if key in _NATIVE_WHERE_KEYS and is_exact_scalar_condition(value):
             native[_to_pywinauto_key(key)] = value
-        elif key in FILTER_KEYS:
+        else:
             post[key] = value
     return native, post
 
@@ -124,31 +167,6 @@ def _wrap_children(parent: Any, items: list[Any]) -> list[Any]:
     if backend is None:
         return items
     return [backend.generic_wrapper_class(item) for item in items]
-
-
-def _matches_native_props(props: ElementProperties, native: dict[str, Any]) -> bool:
-    for key, expected in native.items():
-        attr = "name" if key == "title" else key
-        if getattr(props, attr, None) != expected:
-            return False
-    return True
-
-
-def _matches_post(props: ElementProperties, post: FilterWhere) -> bool:
-    for key, expected in post.items():
-        if getattr(props, key, None) != expected:
-            return False
-    return True
-
-
-def _control_type_name(info: Any) -> str | None:
-    try:
-        ct = info.control_type
-        if ct is None:
-            return None
-        return str(ct)
-    except Exception:
-        return None
 
 
 def _safe_bool(fn: Any) -> bool | None:

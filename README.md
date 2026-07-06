@@ -99,6 +99,27 @@ Shorthand: `Locator.find(name="OK")` → `find_descendants` + `take(0)`.
 
 Компактная форма: `{"find": {"name": "OK"}}`.
 
+### where: открытые поля и операторы
+
+Поля **не ограничены** — любой ключ из `properties()` драйвера. В pywinauto: сначала `element_info` (name, rich_text, class_name, …), затем `get_properties()` (`friendly_class_name`, `texts`, …).
+
+| Значение в where | Семантика |
+|------------------|-----------|
+| `"Button"` / `true` / `null` | точное равенство |
+| `{"$eq": "Button"}` | явное равенство |
+| `{"$contains": "logo-btn"}` | подстрока в `str` или в любом элементе `list` (`texts`) |
+| `{"$word": "logo-btn"}` | токен по пробелам в `class_name` |
+
+Узел без запрошенного ключа в properties — **пропускается** (не ошибка). Неверный синтаксис where — ошибка при создании op.
+
+```json
+{"where": {
+  "friendly_class_name": "Button",
+  "class_name": {"$contains": "logo-btn"},
+  "rich_text": {"$contains": "Cursor"}
+}}
+```
+
 ### Not-found
 
 - **LocatorExecutor** бросает `LocatorNotFoundError` с `LocatorTrace` (in/out counts на каждом шаге).

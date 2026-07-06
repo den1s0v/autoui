@@ -51,9 +51,25 @@ def test_unknown_op_raises() -> None:
         locator_from_dict({"ops": [{"op": "unknown"}]})
 
 
-def test_unknown_filter_key_raises() -> None:
-    with pytest.raises(LocatorError, match="Unknown filter"):
-        locator_from_dict({"ops": [{"op": "filter", "where": {"bad_key": 1}}]})
+def test_unknown_filter_operator_raises() -> None:
+    with pytest.raises(LocatorError, match="unknown operator"):
+        locator_from_dict({"ops": [{"op": "filter", "where": {"name": {"$bad": 1}}}]})
+
+
+def test_round_trip_contains_operator() -> None:
+    original = Locator(
+        [
+            FindDescendantsOp(
+                where={
+                    "class_name": {"$contains": "logo-btn"},
+                    "rich_text": {"$contains": "Cursor"},
+                }
+            ),
+            TakeOp(0),
+        ]
+    )
+    restored = locator_from_dict(locator_to_dict(original))
+    assert restored.ops[0].where == original.ops[0].where
 
 
 def test_find_descendants_depth_limit_round_trip() -> None:
