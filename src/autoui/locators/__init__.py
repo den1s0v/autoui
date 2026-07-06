@@ -1,13 +1,14 @@
 """
 Locator Engine — pipeline поиска UI-элементов.
 
+execute() — один узел для сценариев; execute_all() — полное множество для отладки.
 Независим от pywinauto; выполняется через IElementTree.
 См. README.md — UIMap / Locator.
 """
 
 from autoui.locators.element_set import ElementSet
 from autoui.locators.errors import LocatorError, LocatorNotFoundError
-from autoui.locators.executor import ExecuteResult, LocatorExecutor
+from autoui.locators.executor import ExecuteAllResult, ExecuteResult, LocatorExecutor
 from autoui.locators.locator import Locator
 from autoui.locators.ops import ChildOp, FilterOp, FindDescendantsOp, LocatorOp, TakeOp
 from autoui.locators.serde import (
@@ -21,6 +22,7 @@ from autoui.locators.trace import LocatorTrace, TraceStep
 __all__ = [
     "ChildOp",
     "ElementSet",
+    "ExecuteAllResult",
     "ExecuteResult",
     "FilterOp",
     "FindDescendantsOp",

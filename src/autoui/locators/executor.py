@@ -1,7 +1,8 @@
 """
 LocatorExecutor — выполнение pipeline над IElementTree.
 
-При not-found бросает LocatorNotFoundError с LocatorTrace.
+execute() — один узел для сценариев (с предупреждением при усечении N→1).
+execute_all() — полное множество для playground и отладки.
 См. README.md — UIMap / Locator.
 """
 
@@ -28,13 +29,77 @@ TreeNode = Any
 
 
 @dataclass(frozen=True)
+class ExecuteAllResult:
+    """
+    Результат pipeline без усечения до одного узла.
+
+    Нужен для playground и отладки: FindDescendants без Take возвращает
+    всё множество кандидатов, а не только nodes[0].
+    """
+
+    nodes: tuple[TreeNode, ...]
+    trace: LocatorTrace
+
+
+@dataclass(frozen=True)
 class ExecuteResult:
+    """
+    Результат pipeline для одного целевого узла (driver.resolve, click).
+
+    truncated_from — исходный размер множества, если execute() взял только
+    nodes[0]; None если кандидат был один.
+    """
+
     node: TreeNode
     trace: LocatorTrace
+    truncated_from: int | None = None
 
 
 class LocatorExecutor:
     def execute(self, tree: IElementTree, root: TreeNode, locator: Locator) -> ExecuteResult:
+        """
+        Выполнить pipeline и вернуть один узел для действий сценария.
+
+        Если после pipeline кандидатов > 1 — берётся nodes[0], в truncated_from
+        и trace фиксируется предупреждение (не ошибка, чтобы не ломать цепочки).
+        Для полного множества — execute_all().
+        """
+        current, trace = self._run_pipeline(tree, root, locator)
+        if len(current.nodes) > 1:
+            return ExecuteResult(
+                node=current.nodes[0],
+                trace=LocatorTrace(
+                    steps=trace.steps,
+                    failed_step_index=trace.failed_step_index,
+                    failure_reason=trace.failure_reason,
+                    truncated_from=len(current.nodes),
+                ),
+                truncated_from=len(current.nodes),
+            )
+        return ExecuteResult(node=current.nodes[0], trace=trace)
+
+    def execute_all(
+        self,
+        tree: IElementTree,
+        root: TreeNode,
+        locator: Locator,
+    ) -> ExecuteAllResult:
+        """
+        Выполнить pipeline и вернуть все узлы финального ElementSet.
+
+        Используйте при исследовании UI (Jupyter, подбор индекса), когда
+        последний шаг даёт множество (FindDescendants/Filter без Take).
+        Для сценариев и driver.resolve — execute().
+        """
+        current, trace = self._run_pipeline(tree, root, locator)
+        return ExecuteAllResult(nodes=current.nodes, trace=trace)
+
+    def _run_pipeline(
+        self,
+        tree: IElementTree,
+        root: TreeNode,
+        locator: Locator,
+    ) -> tuple[ElementSet[TreeNode], LocatorTrace]:
         current = ElementSet.single(root)
         steps: list[TraceStep] = []
 
@@ -63,11 +128,10 @@ class LocatorExecutor:
                 )
 
         if current.is_empty():
-            trace = LocatorTrace(steps=tuple(steps), failed_step_index=None, failure_reason=None)
+            trace = LocatorTrace(steps=tuple(steps))
             raise LocatorNotFoundError("Locator pipeline produced empty result", trace=trace)
 
-        trace = LocatorTrace(steps=tuple(steps))
-        return ExecuteResult(node=current.nodes[0], trace=trace)
+        return current, LocatorTrace(steps=tuple(steps))
 
     def _apply_op(
         self,

@@ -132,6 +132,11 @@ class PywinautoDriver:
         root = self._window_spec(window)
         try:
             result = self._executor.execute(self._tree, root, locator)
+            if result.truncated_from is not None:
+                logger.warning(
+                    "Locator matched %d elements; using first only (add Take op to be explicit)",
+                    result.truncated_from,
+                )
             if self._verbose_locators:
                 self._emit_trace(result.trace)
             return PywinautoElement(control=result.node)

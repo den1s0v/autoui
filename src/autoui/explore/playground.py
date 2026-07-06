@@ -20,6 +20,8 @@ from autoui.explore.pywinauto_helpers import (
     find_desktop_windows,
     path_from_root,
 )
+from autoui.locators.errors import LocatorNotFoundError
+from autoui.locators.executor import LocatorExecutor
 from autoui.locators.locator import Locator
 from autoui.locators.trace import LocatorTrace
 
@@ -44,6 +46,7 @@ class ExplorerSession:
         self._highlighter = HighlightManager()
         self._window_control: Any | None = None
         self._py_window: PywinautoWindow | None = None
+        self._executor = LocatorExecutor()
 
     def _on_trace(self, trace: LocatorTrace) -> None:
         self._last_trace = trace
@@ -130,6 +133,44 @@ class ExplorerSession:
     def clear_highlight(self) -> None:
         self._highlighter.clear()
 
+    def query_locator(
+        self,
+        locator: Locator,
+        *,
+        highlight: bool = False,
+        highlight_index: int = 0,
+    ) -> list[Any]:
+        """
+        Запустить Locator и вернуть полный список controls (без Take в конце).
+
+        Аналог императивного candidates = toolbar.descendants(...): нужен
+        в notebook для просмотра всех совпадений и выбора индекса.
+        Не вызывает driver.resolve — не предназначен для шагов сценария.
+
+        См. try_locator() — когда нужен ровно один элемент (как в UIMap).
+        """
+        self._last_trace = None
+        try:
+            result = self._executor.execute_all(self._tree, self.window, locator)
+        except LocatorNotFoundError as exc:
+            self._last_trace = exc.trace
+            if self._verbose_locators:
+                print(exc.trace.format_diagnostic())
+            return []
+        self._last_trace = result.trace
+        if self._verbose_locators:
+            print(result.trace.format_diagnostic())
+            print(f"  found: {len(result.nodes)}")
+        controls = list(result.nodes)
+        if highlight and controls:
+            idx = highlight_index
+            if idx < 0 or idx >= len(controls):
+                raise IndexError(
+                    f"highlight_index {idx} out of range (found {len(controls)})"
+                )
+            self.highlight(controls[idx])
+        return controls
+
     def try_locator(
         self,
         locator: Locator,
@@ -137,9 +178,10 @@ class ExplorerSession:
         highlight: bool = True,
     ) -> PywinautoElement | None:
         """
-        resolve через драйвер; при успехе — подсветка control.
+        Проверка локатора «как в сценарии»: один элемент через driver.resolve.
 
-        При not-found печатает trace (если verbose_locators).
+        Если pipeline без Take нашёл N>1 — вернётся первый, в лог/trace —
+        предупреждение об усечении. Для полного списка — query_locator().
         """
         self._last_trace = None
         element = self._driver.resolve(locator, self._py_window)

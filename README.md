@@ -106,6 +106,15 @@ Shorthand: `Locator.find(name="OK")` → `find_descendants` + `take(0)`.
 - **click** / **set_text** при not-found → `DriverError`.
 - Подробная диагностика: `trace.format_diagnostic()` или `verbose_locators` / `locator_trace_hook` в драйвере.
 
+### Query vs resolve (один элемент vs множество)
+
+| API | Зачем | Результат при N кандидатах без `Take` |
+|-----|-------|----------------------------------------|
+| `LocatorExecutor.execute_all()` | Отладка, подбор индекса | Все N узлов |
+| `LocatorExecutor.execute()` | Сценарии, `driver.resolve` | Первый + `truncated_from=N` в trace и warning в лог |
+| `ExplorerSession.query_locator()` | Jupyter: список совпадений | Все controls |
+| `ExplorerSession.try_locator()` / `resolve()` | Проверка как в UIMap | Первый + предупреждение |
+
 ## CoexistenceGuard
 
 Mouse hook: пауза при активности пользователя, auto-resume после 30 с idle.
@@ -124,11 +133,17 @@ python -m autoui dry-run examples.double_commander_demo:demo_scenario
 Интерактивный подбор локаторов: [`src/examples/exploring.ipynb`](src/examples/exploring.ipynb).
 
 ```python
-from autoui.explore import ExplorerSession, find_desktop_windows
+from autoui.explore import ExplorerSession
 
 session = ExplorerSession("Notepad++")
 session.connect()
-session.try_locator(locator)  # resolve + подсветка + trace
+
+# все кандидаты (pipeline без Take)
+candidates = session.query_locator(LOCATOR_QUERY)
+session.list_indexed(candidates)
+
+# один элемент, как в сценарии (с Take или Locator.find)
+element = session.try_locator(LOCATOR_SINGLE)
 ```
 
 ## Roadmap

@@ -24,6 +24,8 @@ class LocatorTrace:
     steps: tuple[TraceStep, ...]
     failed_step_index: int | None = None
     failure_reason: str | None = None
+    truncated_from: int | None = None
+    """Сколько кандидатов было до усечения execute() до одного узла; None если не усечено."""
 
     def format_diagnostic(self) -> str:
         if not self.steps:
@@ -31,7 +33,12 @@ class LocatorTrace:
 
         total = len(self.steps)
         if self.failed_step_index is None:
-            lines = [f"Locator pipeline ({total} ops), success:"]
+            if self.truncated_from is not None:
+                lines = [
+                    f"Locator pipeline ({total} ops), success (truncated {self.truncated_from} → 1):"
+                ]
+            else:
+                lines = [f"Locator pipeline ({total} ops), success:"]
         else:
             lines = [
                 f"Locator pipeline ({total} ops), failed at step {self.failed_step_index}:"

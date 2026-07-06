@@ -144,3 +144,24 @@ def test_find_descendants_depth_zero_invalid() -> None:
 def test_find_descendants_limit_zero_invalid() -> None:
     with pytest.raises(ValueError, match="limit"):
         FindDescendantsOp(where={"control_type": "Button"}, limit=0)
+
+
+def test_execute_all_returns_full_set(tree: MockElementTree, root) -> None:
+    locator = Locator([FindDescendantsOp(where={"control_type": "Button"})])
+    result = LocatorExecutor().execute_all(tree, root, locator)
+    assert len(result.nodes) == 3
+
+
+def test_execute_truncates_multiple_candidates(tree: MockElementTree, root) -> None:
+    locator = Locator([FindDescendantsOp(where={"control_type": "Button"})])
+    result = LocatorExecutor().execute(tree, root, locator)
+    assert result.truncated_from == 3
+    assert tree.properties(result.node).name == "Экспорт"
+    assert "truncated 3 → 1" in result.trace.format_diagnostic()
+
+
+def test_execute_single_candidate_no_truncation(tree: MockElementTree, root) -> None:
+    locator = Locator.find(name="OK")
+    result = LocatorExecutor().execute(tree, root, locator)
+    assert result.truncated_from is None
+    assert "truncated" not in result.trace.format_diagnostic()
