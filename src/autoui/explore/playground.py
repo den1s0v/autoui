@@ -70,8 +70,21 @@ class ExplorerSession:
             raise IndexError(
                 f"Window index {index} out of range ({len(windows)} matches for '{self.window_title}')"
             )
-        control = windows[index]
+        return self.connect_control(windows[index])
+
+    def connect_control(self, control: Any) -> Any:
+        """
+        Подключиться к уже найденному pywinauto control окна (например из Desktop.windows()).
+
+        Используется Control Inspector при выборе окна из иерархии Desktop.
+        """
         handle = control.handle
+        try:
+            title = control.window_text() or ""
+        except Exception:
+            title = ""
+        if title:
+            self.window_title = title
         from pywinauto.application import Application
 
         app = Application(backend="uia").connect(handle=handle)

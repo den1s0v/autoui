@@ -30,6 +30,20 @@ src/autoui/drivers/pywinauto_tree.py
 src/autoui/dsl/__init__.py
 src/autoui/dsl/builder.py
 src/autoui/dsl/precondition.py
+src/autoui/explore/__init__.py
+src/autoui/explore/highlight.py
+src/autoui/explore/playground.py
+src/autoui/explore/pywinauto_helpers.py
+src/autoui/explore/inspector/__init__.py
+src/autoui/explore/inspector/__main__.py
+src/autoui/explore/inspector/app.py
+src/autoui/explore/inspector/control_label.py
+src/autoui/explore/inspector/hierarchy_navigator.py
+src/autoui/explore/inspector/locator_codegen.py
+src/autoui/explore/inspector/widgets/__init__.py
+src/autoui/explore/inspector/widgets/hierarchy_view.py
+src/autoui/explore/inspector/widgets/properties_panel.py
+src/autoui/explore/inspector/widgets/selector_panel.py
 src/autoui/guards/__init__.py
 src/autoui/guards/coexistence.py
 src/autoui/guards/focus.py
@@ -39,6 +53,7 @@ src/autoui/locators/element_set.py
 src/autoui/locators/errors.py
 src/autoui/locators/executor.py
 src/autoui/locators/locator.py
+src/autoui/locators/matching.py
 src/autoui/locators/ops.py
 src/autoui/locators/serde.py
 src/autoui/locators/trace.py
@@ -60,5 +75,6 @@ src/autoui/watchers/builtin.py
 src/autoui/watchers/manager.py
 src/examples/__init__.py
 src/examples/double_commander_demo.py
+src/examples/notepadpp_find_demo.py
 src/examples/optional_dialog_demo.py
 src/examples/test_pipeline_smoke.py

@@ -167,8 +167,22 @@ session.list_indexed(candidates)
 element = session.try_locator(LOCATOR_SINGLE)
 ```
 
+## Control Inspector (PySide6 GUI)
+
+Desktop → окно → контролы; codegen `Locator` для копирования в сценарий.
+
+```bash
+pip install -e ".[explore]"
+python -m autoui.explore.inspector
+```
+
+- Слева: иерархия от **Desktop** (список окон → дети окна → …)
+- Стрелки: навигация PATH/CHILDREN; **→** на ребёнке фиксирует сегмент path
+- **Space** / двойной клик — подсветка control в целевом приложении (`HighlightManager`)
+- Справа: свойства узла и панель селектора (Generated / Custom, Test, Copy)
+
 ## Roadmap
 
-- PySide6 GUI
+- Test-rebuild HierarchyView из locator (частичный resolve)
 - YAML loader
 - Другие драйверы (Playwright, vision)
