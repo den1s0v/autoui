@@ -126,7 +126,28 @@ def test_left_from_children_returns_to_path() -> None:
     assert nav.focus_zone == FocusZone.PATH
 
 
-def test_down_from_path_enters_children() -> None:
+def test_deep_navigation_chain() -> None:
+    """Несколько Right подряд не ломают индексы фокуса."""
+    desktop, _, p2, btn = _tree()
+    nav = _nav_with_loader(desktop)
+    nav.handle_key(NavKey.RIGHT)
+    nav.focus_child_index = 1
+    nav.handle_key(NavKey.RIGHT)
+    nav.handle_key(NavKey.RIGHT)
+    nav.focus_child_index = 0
+    nav.handle_key(NavKey.RIGHT)
+    nav.handle_key(NavKey.RIGHT)
+    nav.focus_child_index = 0
+    nav.handle_key(NavKey.RIGHT)
+    assert len(nav.path) == 3
+    assert nav.path[0].control is p2
+    assert nav.path[2].control is btn
+    assert nav.focus_zone == FocusZone.PATH
+    assert nav.focus_path_row == 3
+    assert nav.focus_child_index < len(nav.children) or not nav.children
+
+
+def test_down_from_path_enters_children_only_at_explore_row() -> None:
     desktop, _, p2, _ = _tree()
     nav = _nav_with_loader(desktop)
     nav.path = [_seg(p2, 1, window=True)]
@@ -137,3 +158,9 @@ def test_down_from_path_enters_children() -> None:
     nav.handle_key(NavKey.DOWN)
     assert nav.focus_zone == FocusZone.CHILDREN
     assert nav.focus_child_index == 0
+
+    nav.focus_zone = FocusZone.PATH
+    nav.focus_path_row = 0
+    nav.handle_key(NavKey.DOWN)
+    assert nav.focus_zone == FocusZone.PATH
+    assert nav.focus_path_row == 1

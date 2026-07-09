@@ -10,14 +10,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
-    QHBoxLayout,
     QMainWindow,
     QMessageBox,
     QSplitter,
     QStatusBar,
     QToolBar,
-    QVBoxLayout,
-    QWidget,
 )
 
 from autoui.explore.highlight import HighlightManager
@@ -54,17 +51,22 @@ class MainWindow(QMainWindow):
         self._properties = PropertiesPanel()
         self._selector = SelectorPanel()
 
-        right = QWidget()
-        right_layout = QVBoxLayout(right)
-        right_layout.addWidget(self._properties, stretch=2)
-        right_layout.addWidget(self._selector, stretch=1)
+        right_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_splitter.addWidget(self._properties)
+        right_splitter.addWidget(self._selector)
+        right_splitter.setStretchFactor(0, 2)
+        right_splitter.setStretchFactor(1, 1)
+        right_splitter.setSizes([420, 220])
+        right_splitter.setChildrenCollapsible(False)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self._hierarchy)
-        splitter.addWidget(right)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 2)
-        self.setCentralWidget(splitter)
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_splitter.addWidget(self._hierarchy)
+        main_splitter.addWidget(right_splitter)
+        main_splitter.setStretchFactor(0, 1)
+        main_splitter.setStretchFactor(1, 2)
+        main_splitter.setSizes([380, 720])
+        main_splitter.setChildrenCollapsible(False)
+        self.setCentralWidget(main_splitter)
 
         toolbar = QToolBar("Main")
         refresh_action = QAction("Refresh", self)

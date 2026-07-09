@@ -121,6 +121,13 @@ class HierarchyNavigator:
             self._make_segment(ctrl, i, from_desktop=from_desktop)
             for i, ctrl in enumerate(raw)
         ]
+        self._clamp_child_focus()
+
+    def _clamp_child_focus(self) -> None:
+        if not self.children:
+            self.focus_child_index = 0
+        elif self.focus_child_index >= len(self.children):
+            self.focus_child_index = len(self.children) - 1
 
     def _expand_children_at(self, path_row: int) -> None:
         self.explore_path_row = path_row
@@ -197,8 +204,10 @@ class HierarchyNavigator:
 
         if not self.children:
             return
+        if self.focus_child_index < 0 or self.focus_child_index >= len(self.children):
+            return
         child = self.children[self.focus_child_index]
-        explore = self.explore_row()
+        explore = self.explore_path_row
         self.path = self.path[:explore]
         self.path.append(child)
         new_row = len(self.path)
@@ -231,7 +240,11 @@ class HierarchyNavigator:
         if self.focus_zone == FocusZone.PATH:
             if self.focus_path_row < self.path_row_count() - 1:
                 self.focus_path_row += 1
-            elif self.children_expanded and self.children:
+            elif (
+                self.children_expanded
+                and self.children
+                and self.focus_path_row == self.explore_path_row
+            ):
                 self.focus_zone = FocusZone.CHILDREN
                 self.focus_child_index = 0
             return
@@ -264,7 +277,7 @@ class HierarchyNavigator:
                 rows.append(
                     ViewRow(
                         zone="child",
-                        label=f"> {seg.label}",
+                        label=seg.label,
                         path_row=0,
                         child_index=seg.child_index,
                         is_committed=committed == seg.child_index,
@@ -293,7 +306,7 @@ class HierarchyNavigator:
                     rows.append(
                         ViewRow(
                             zone="child",
-                            label=f"> {child.label}",
+                            label=child.label,
                             path_row=path_row,
                             child_index=child.child_index,
                             is_committed=committed == child.child_index,

@@ -1,18 +1,20 @@
 """
-HierarchyView — двухуровневый список PATH + CHILDREN с клавиатурной навигацией.
+HierarchyView — PATH + вложенные CHILDREN на QTreeWidget.
+
+Дети отображаются как раскрывающиеся подпункты (disclosure triangle), без префикса «>».
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QKeyEvent
-from PySide6.QtWidgets import QListWidget, QListWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
+from autoui.explore.inspector.control_label import DESKTOP_LABEL
 from autoui.explore.inspector.hierarchy_navigator import (
     FocusZone,
     HierarchyNavigator,
     NavKey,
-    ViewRow,
 )
 
 _ITEM_DATA = Qt.ItemDataRole.UserRole
@@ -20,45 +22,22 @@ _COMMITTED_BG = QColor(180, 210, 255)
 _FOCUS_BG = QColor(200, 230, 200)
 
 
-class HierarchyView(QWidget):
-    """Левая панель: PATH и CHILDREN в одном QListWidget."""
+class _HierarchyTree(QTreeWidget):
+    """Дерево с клавиатурной навигацией через HierarchyNavigator."""
 
-    path_changed = Signal()
-    highlight_requested = Signal()
-
-    def __init__(self, navigator: HierarchyNavigator, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        navigator: HierarchyNavigator,
+        view: HierarchyView,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._nav = navigator
-        self._list = QListWidget(self)
-        self._list.setAlternatingRowColors(True)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._list)
-        self._list.itemActivated.connect(self._on_item_activated)
-        self._list.itemDoubleClicked.connect(self._on_item_double_clicked)
-        self.setFocusProxy(self._list)
-
-    def navigator(self) -> HierarchyNavigator:
-        return self._nav
-
-    def refresh(self) -> None:
-        self._list.clear()
-        for row in self._nav.build_view_rows():
-            item = QListWidgetItem(row.label)
-            item.setData(_ITEM_DATA, row)
-            if row.is_committed:
-                item.setBackground(_COMMITTED_BG)
-            elif row.has_focus:
-                item.setBackground(_FOCUS_BG)
-            self._list.addItem(item)
-        self._sync_list_focus()
-        self.path_changed.emit()
-
-    def _sync_list_focus(self) -> None:
-        rows = self._nav.build_view_rows()
-        focus_idx = next((i for i, r in enumerate(rows) if r.has_focus), -1)
-        if focus_idx >= 0:
-            self._list.setCurrentRow(focus_idx)
+        self._view = view
+        self.setHeaderHidden(True)
+        self.setRootIsDecorated(True)
+        self.setAlternatingRowColors(True)
+        self.setUniformRowHeights(True)
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         key_map = {
@@ -70,36 +49,152 @@ class HierarchyView(QWidget):
         nav_key = key_map.get(event.key())
         if nav_key is not None:
             self._nav.handle_key(nav_key)
-            self.refresh()
+            self._view.refresh()
             event.accept()
             return
-        if event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return):
-            self.highlight_requested.emit()
+        if event.key() == Qt.Key.Key_Space:
+            self._view.highlight_requested.emit()
             event.accept()
             return
         super().keyPressEvent(event)
 
-    def _on_item_activated(self, item: QListWidgetItem) -> None:
-        row: ViewRow | None = item.data(_ITEM_DATA)
-        if row is None:
+
+class HierarchyView(QWidget):
+    """Левая панель: Desktop → path-сегменты; дети — вложенные узлы."""
+
+    path_changed = Signal()
+    highlight_requested = Signal()
+
+    def __init__(self, navigator: HierarchyNavigator, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._nav = navigator
+        self._tree = _HierarchyTree(navigator, self, self)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._tree)
+        self._tree.itemClicked.connect(self._on_item_clicked)
+        self._tree.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.setFocusProxy(self._tree)
+
+    def navigator(self) -> HierarchyNavigator:
+        return self._nav
+
+    def refresh(self) -> None:
+        self._tree.blockSignals(True)
+        self._tree.clear()
+        committed = self._nav.committed_child_index()
+        explore = self._nav.explore_row() if self._nav.children_expanded else -1
+
+        desktop_item = self._make_path_item(DESKTOP_LABEL, path_row=0)
+        self._tree.addTopLevelItem(desktop_item)
+        if self._nav.children_expanded and explore == 0:
+            self._add_child_items(desktop_item, committed)
+            desktop_item.setExpanded(True)
+
+        for i, seg in enumerate(self._nav.path):
+            path_row = i + 1
+            item = self._make_path_item(seg.label, path_row=path_row)
+            self._tree.addTopLevelItem(item)
+            if self._nav.children_expanded and explore == path_row:
+                self._add_child_items(item, committed)
+                item.setExpanded(True)
+
+        self._sync_tree_focus()
+        self._tree.blockSignals(False)
+        self.path_changed.emit()
+
+    def _make_path_item(self, label: str, *, path_row: int) -> QTreeWidgetItem:
+        item = QTreeWidgetItem([label])
+        item.setData(0, _ITEM_DATA, ("path", path_row, None))
+        if self._nav.focus_zone == FocusZone.PATH and self._nav.focus_path_row == path_row:
+            item.setBackground(0, _FOCUS_BG)
+        return item
+
+    def _add_child_items(self, parent: QTreeWidgetItem, committed: int | None) -> None:
+        explore = self._nav.explore_row()
+        for seg in self._nav.children:
+            child = QTreeWidgetItem([seg.label])
+            child.setData(0, _ITEM_DATA, ("child", explore, seg.child_index))
+            if committed is not None and seg.child_index == committed:
+                child.setBackground(0, _COMMITTED_BG)
+            elif (
+                self._nav.focus_zone == FocusZone.CHILDREN
+                and self._nav.focus_child_index == seg.child_index
+            ):
+                child.setBackground(0, _FOCUS_BG)
+            parent.addChild(child)
+
+    def _sync_tree_focus(self) -> None:
+        target = self._find_focus_item()
+        if target is not None:
+            self._tree.setCurrentItem(target)
+            self._tree.scrollToItem(target)
+
+    def _find_focus_item(self) -> QTreeWidgetItem | None:
+        zone_want = "path" if self._nav.focus_zone == FocusZone.PATH else "child"
+        path_row = (
+            self._nav.focus_path_row
+            if zone_want == "path"
+            else self._nav.explore_path_row
+        )
+        child_index = self._nav.focus_child_index if zone_want == "child" else None
+
+        for i in range(self._tree.topLevelItemCount()):
+            top = self._tree.topLevelItem(i)
+            if top is None:
+                continue
+            found = self._match_item(top, zone_want, path_row, child_index)
+            if found is not None:
+                return found
+            for j in range(top.childCount()):
+                child = top.child(j)
+                if child is not None:
+                    found = self._match_item(child, zone_want, path_row, child_index)
+                    if found is not None:
+                        return found
+        return None
+
+    @staticmethod
+    def _match_item(
+        item: QTreeWidgetItem,
+        zone_want: str,
+        path_row: int,
+        child_index: int | None,
+    ) -> QTreeWidgetItem | None:
+        data = item.data(0, _ITEM_DATA)
+        if not data:
+            return None
+        zone, row, cidx = data
+        if zone == zone_want and row == path_row and cidx == child_index:
+            return item
+        return None
+
+    def _apply_item_focus(self, item: QTreeWidgetItem | None) -> None:
+        if item is None:
             return
-        if row.zone == "path":
+        data = item.data(0, _ITEM_DATA)
+        if not data:
+            return
+        zone, path_row, child_index = data
+        if zone == "path":
             self._nav.focus_zone = FocusZone.PATH
-            self._nav.focus_path_row = row.path_row
+            self._nav.focus_path_row = path_row
         else:
             self._nav.focus_zone = FocusZone.CHILDREN
-            self._nav.focus_child_index = row.child_index or 0
-        self.refresh()
-        self.highlight_requested.emit()
+            self._nav.explore_path_row = path_row
+            self._nav.children_expanded = True
+            self._nav.refresh_children()
+            self._nav.focus_child_index = child_index if child_index is not None else 0
 
-    def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
-        row: ViewRow | None = item.data(_ITEM_DATA)
-        if row is not None:
-            if row.zone == "path":
-                self._nav.focus_zone = FocusZone.PATH
-                self._nav.focus_path_row = row.path_row
-            else:
-                self._nav.focus_zone = FocusZone.CHILDREN
-                self._nav.focus_child_index = row.child_index or 0
-            self.refresh()
+    def _on_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
+        if item is None:
+            return
+        self._apply_item_focus(item)
+        self.refresh()
+
+    def _on_item_double_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
+        if item is None:
+            return
+        self._apply_item_focus(item)
+        self.refresh()
         self.highlight_requested.emit()
