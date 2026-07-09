@@ -177,15 +177,40 @@ class HierarchyNavigator:
 
     def control_segments(self) -> list[PathSegment]:
         """Сегменты path после окна — для codegen Locator."""
+        return self._control_segments_from(self.path)
+
+    def locator_control_segments(self) -> list[PathSegment]:
+        """Control-сегменты для codegen по текущему фокусу (не только хвост path)."""
+        return self._control_segments_from(self._effective_path_prefix())
+
+    def _control_segments_from(self, segments: list[PathSegment]) -> list[PathSegment]:
         found_window = False
         result: list[PathSegment] = []
-        for seg in self.path:
+        for seg in segments:
             if seg.kind == "window":
                 found_window = True
                 continue
             if found_window:
                 result.append(seg)
         return result
+
+    def _effective_path_prefix(self) -> list[PathSegment]:
+        """Path-префикс, соответствующий узлу под фокусом."""
+        if self.focus_zone == FocusZone.CHILDREN:
+            base = self.path[: self.explore_path_row]
+            if self.children and 0 <= self.focus_child_index < len(self.children):
+                return base + [self.children[self.focus_child_index]]
+            return base
+        if self.focus_path_row > 0:
+            return self.path[: self.focus_path_row]
+        return []
+
+    def window_segment_for_locator(self) -> PathSegment | None:
+        """Окно из effective path (для комментария codegen)."""
+        for seg in self._effective_path_prefix():
+            if seg.kind == "window":
+                return seg
+        return self.window_segment()
 
     def handle_key(self, key: NavKey) -> None:
         if key == NavKey.RIGHT:
@@ -220,10 +245,27 @@ class HierarchyNavigator:
     def _on_left(self) -> None:
         if self.focus_zone == FocusZone.CHILDREN:
             self.focus_zone = FocusZone.PATH
-            self.focus_path_row = self.explore_row()
+            self.focus_path_row = self.explore_path_row
             return
-        if self.children_expanded and self.explore_row() == self.focus_path_row:
+        if self.focus_path_row > 0 and self.focus_path_row <= len(self.path):
+            self._undo_path_segment_at(self.focus_path_row)
+            return
+        if self.children_expanded and self.explore_path_row == self.focus_path_row:
             self._collapse_children()
+
+    def _undo_path_segment_at(self, path_row: int) -> None:
+        """Снять сегмент path_row и вернуть фокус на его список детей у родителя."""
+        if path_row <= 0 or path_row > len(self.path):
+            return
+        removed = self.path[path_row - 1]
+        parent_row = path_row - 1
+        self.path = self.path[: parent_row]
+        self.explore_path_row = parent_row
+        self.children_expanded = True
+        self.refresh_children()
+        self.focus_zone = FocusZone.CHILDREN
+        self.focus_child_index = removed.child_index
+        self._clamp_child_focus()
 
     def _on_up(self) -> None:
         if self.focus_zone == FocusZone.PATH:

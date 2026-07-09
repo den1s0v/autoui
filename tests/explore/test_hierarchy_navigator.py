@@ -147,6 +147,38 @@ def test_deep_navigation_chain() -> None:
     assert nav.focus_child_index < len(nav.children) or not nav.children
 
 
+def test_left_on_path_segment_undoes_and_returns_to_child() -> None:
+    desktop, _, p2, _ = _tree()
+    nav = _nav_with_loader(desktop)
+    nav.path = [_seg(p2, 1, window=True), _seg(p2.children_list[0], 0)]
+    nav.explore_path_row = 2
+    nav.children_expanded = True
+    nav.refresh_children()
+    nav.focus_zone = FocusZone.PATH
+    nav.focus_path_row = 2
+    nav.handle_key(NavKey.LEFT)
+    assert len(nav.path) == 1
+    assert nav.focus_zone == FocusZone.CHILDREN
+    assert nav.explore_path_row == 1
+    assert nav.focus_child_index == 0
+
+
+def test_locator_segments_follow_focus() -> None:
+    desktop, _, p2, _ = _tree()
+    nav = _nav_with_loader(desktop)
+    p21 = p2.children_list[0]
+    nav.path = [_seg(p2, 1, window=True), _seg(p21, 0)]
+    nav.explore_path_row = 1
+    nav.children_expanded = True
+    nav.refresh_children()
+    nav.focus_zone = FocusZone.CHILDREN
+    nav.focus_child_index = 0
+    assert len(nav.locator_control_segments()) == 1
+    nav.focus_zone = FocusZone.PATH
+    nav.focus_path_row = 1
+    assert nav.locator_control_segments() == []
+
+
 def test_down_from_path_enters_children_only_at_explore_row() -> None:
     desktop, _, p2, _ = _tree()
     nav = _nav_with_loader(desktop)

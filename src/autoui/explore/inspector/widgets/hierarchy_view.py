@@ -6,8 +6,8 @@ HierarchyView — PATH + вложенные CHILDREN на QTreeWidget.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QKeyEvent
+from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtGui import QColor, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 
 from autoui.explore.inspector.control_label import DESKTOP_LABEL
@@ -20,6 +20,7 @@ from autoui.explore.inspector.hierarchy_navigator import (
 _ITEM_DATA = Qt.ItemDataRole.UserRole
 _COMMITTED_BG = QColor(180, 210, 255)
 _FOCUS_BG = QColor(200, 230, 200)
+_CLICK_DELAY_MS = 220
 
 
 class _HierarchyTree(QTreeWidget):
@@ -58,6 +59,14 @@ class _HierarchyTree(QTreeWidget):
             return
         super().keyPressEvent(event)
 
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        item = self.itemAt(event.pos())
+        if item is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._view.handle_double_click(item)
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
 
 class HierarchyView(QWidget):
     """Левая панель: Desktop → path-сегменты; дети — вложенные узлы."""
@@ -69,15 +78,26 @@ class HierarchyView(QWidget):
         super().__init__(parent)
         self._nav = navigator
         self._tree = _HierarchyTree(navigator, self, self)
+        self._pending_click_item: QTreeWidgetItem | None = None
+        self._click_timer = QTimer(self)
+        self._click_timer.setSingleShot(True)
+        self._click_timer.setInterval(_CLICK_DELAY_MS)
+        self._click_timer.timeout.connect(self._on_single_click_timeout)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._tree)
         self._tree.itemClicked.connect(self._on_item_clicked)
-        self._tree.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.setFocusProxy(self._tree)
 
     def navigator(self) -> HierarchyNavigator:
         return self._nav
+
+    def handle_double_click(self, item: QTreeWidgetItem) -> None:
+        self._click_timer.stop()
+        self._pending_click_item = None
+        self._apply_item_focus(item)
+        self.refresh()
+        self.highlight_requested.emit()
 
     def refresh(self) -> None:
         self._tree.blockSignals(True)
@@ -189,12 +209,12 @@ class HierarchyView(QWidget):
     def _on_item_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
         if item is None:
             return
-        self._apply_item_focus(item)
-        self.refresh()
+        self._pending_click_item = item
+        self._click_timer.start()
 
-    def _on_item_double_clicked(self, item: QTreeWidgetItem, _column: int) -> None:
-        if item is None:
+    def _on_single_click_timeout(self) -> None:
+        if self._pending_click_item is None:
             return
-        self._apply_item_focus(item)
+        self._apply_item_focus(self._pending_click_item)
+        self._pending_click_item = None
         self.refresh()
-        self.highlight_requested.emit()

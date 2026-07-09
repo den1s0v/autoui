@@ -107,12 +107,12 @@ class MainWindow(QMainWindow):
 
     def _on_path_changed(self) -> None:
         self._ensure_session_for_window()
-        control = self._nav.selected_control()
+        control = self._nav.focused_control() or self._nav.selected_control()
         self._properties.show_control(control)
         if self._selector.mode() == SelectorMode.GENERATED:
             text = codegen_from_navigator(
-                self._nav.control_segments(),
-                self._nav.window_segment(),
+                self._nav.locator_control_segments(),
+                self._nav.window_segment_for_locator(),
             )
             self._selector.set_generated_text(text)
 
